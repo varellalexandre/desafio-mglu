@@ -1,0 +1,71 @@
+Table estado {
+  id_estado integer [pk]
+  ds_estado str
+}
+
+Table cidade {
+  id_cidade integer [pk]
+  ds_cidade str
+  id_estado int
+}
+
+Table filial {
+  id_filial integer [pk]
+  ds_filial str
+  id_cidade integer
+}
+
+Ref: estado.id_estado < cidade.id_estado
+Ref: cidade.id_cidade < filial.id_cidade
+
+Table parceiro{
+  id_parceiro integer [pk]
+  nm_parceiro str
+}
+
+Table cliente {
+  id_cliente integer [pk]
+  nm_cliente str
+  flag_ouro integer
+}
+
+Table item_pedido {
+  id_pedido integer [pk]
+  id_produto integer [pk]
+  quantidade integer
+  vr_unitario decimal
+}
+
+Table produto {
+  id_produto integer [pk]
+  ds_produto str
+  id_subcategoria integer
+}
+
+Table sub_categoria{
+  id_subcategoria integer [pk]
+  ds_subcategoria integer
+  id_categoria integer
+}
+
+Table categoria {
+  id_categoria integer [pk]
+  ds_categoria str
+  perc_parceiro decimal
+}
+ref: produto.id_produto < item_pedido.id_produto
+ref: produto.id_subcategoria > sub_categoria.id_subcategoria
+ref: sub_categoria.id_categoria > categoria.id_categoria
+
+Table pedido {
+  id_pedido integer [pk]
+  dt_pedido datetime
+  id_parceiro integer
+  id_cliente integer
+  id_filial integer
+  vr_total_pago decimal
+}
+ref: pedido.id_parceiro > parceiro.id_parceiro
+ref: pedido.id_cliente > cliente.id_cliente
+ref: pedido.id_filial > filial.id_filial
+ref: pedido.id_pedido < item_pedido.id_pedido

@@ -4,7 +4,7 @@
 
 O modelo transacional apresentado diz respeito a parte de gestão de pedidos de uma plataforma de marketplace. O modelo é apresentado abaixo. Para a solução desse desafio, serão consideradas algumas premissas de funcionamento, essas premissas serão baseadas no ERD apresentado.
 
-![Imagem ERD Transacional](documentacao/erd_transacional_mglu.png)
+![Imagem ERD Transacional](artefatos/erd_transacional_mglu.png)
 
 ### Premissas do Modelo transacional
 #### Filial, Cidade e Estado
@@ -25,4 +25,10 @@ O modelo transacional apresentado diz respeito a parte de gestão de pedidos de 
 #### Premissas de Negócio
 - O marketplace poderá ter pedidos para parceiros e para realização própria da Magalu, caso seja realizado pela própria magalu, o id do parceiro deverá ser nulo.
 - O pedido diz respeito a ótica do parceiro/magalu, pois na ótica do cliente seria possível fechar um carrinho com pedido com uma combinação de varios parceiros e magalu.
-- A loja online da Magazine será
+
+## Fase de Preparação dos Dados
+Para execução mais próxima de um banco transacional, os arquivos em csv foram colocados em um arquivo de banco sqlite. O tipo de banco de dados foi selecionado para facilitar o processo de consumo, mas a fase de data prep poderia ser realizada nos mais diversos bancos de dados disponíveis no mercado.
+
+Devido a demanda não especificar o tipo de banco e a forma de disponibilização da informação para o processo de ETL, então será usado queries comuns aos diversos bancos. O processo também tentará se adequar a essa premissa, seja por integração de eventos, seja por integração via lotes de informações extraídas via sql.
+
+O detalhamento desse código está na pasta preparacao_dos_dados, os arquivos foram extraídos na pasta preparacao_dos_dados/raw e lidos e transformados na base de dados sqlite.
