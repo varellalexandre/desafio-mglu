@@ -52,12 +52,115 @@ O fluxo dos dados pode ser adaptado as demais plataformas de cloud do mercado co
 ![Imagem modelo Multidimensional](artefatos/pipeline_fluxo.png)
 
 ### Dimensões e Fatos
-- **dim_produto** :
-- **dim_parceiro** :
-- **dim_cliente** :
-- **dim_filial** :
-- **fact_item_pedido** : 
+O diagrama abaixo apresenta o modelo proposto com fatos e dimensões para modelagem multidimensional. Foi feito um ajuste na tabela de subcategoria, pois o ds no ERD original estava como inteiro porém na base de dados ele é representado como String.
 
-### Query do Watcher
+![Imagem modelo Multidimensional](artefatos/erd_multidimensional_mglu.png)
+
+- **dim_produto** :
+  - Na dimensão de produto foram feitas desnormalizações nas tabelas de categoria e subcategoria.
+- **dim_parceiro** :
+  - Na dimensão parceiro, a tabela foi mantida da forma original
+- **dim_cliente** :
+  - Na dimensão cliente a tabela foi mantida da forma original
+- **dim_filial** :
+  - Na dimensão filial cidade e estado foram desnormalizados para tabela de dimensão filial
+- **fact_item_pedido** :
+  - O fact item pedido é a agregação da tabela item pedido com a tabela item, na granularidade de item pedido. Dessa forma cada linha representa um item de um pedido, e o vr_total_pago agora representa o produto entre quantidade e vr_unitario. Dessa forma, caso as linhas sejam agregadas é possível fazer a valoração do valor total pago nas diferentes óticas do cubo.
+
+### Queries do Watcher
+#### Query do Fact Item Pedido
+Na query de fact de item pedido, são agregados os elementos de itens com os de pedido. Nesse caso foi utilizado Inner Join pois alguns itens pedido não possuiam pedidos atrelados, por isso seriam agregados apenas os elementos que possuiam os dois. Outro fator é a variável date_from, que devido a aplicação ser um watcher pode ter sua leitura dos fatos incremental. Esse campo também será o campo versionador na tabela raw e de dw.
+
+~~~ sql
+SELECT item_pedido.id_pedido
+  , pedido.dt_pedido
+  , pedido.id_parceiro
+  , pedido.id_cliente
+  , pedido.id_filial
+  , item_pedido.id_produto
+  , item_pedido.quantidade
+  , item_pedido.vr_unitario
+  , (item_pedido.vr_unitario * item_pedido.quantidade) AS vr_total_pago
+FROM item_pedido
+INNER JOIN pedido
+ON pedido.id_pedido = item_pedido.id_pedido
+WHERE pedido.dt_pedido >= '{date_from}'
+ORDER BY pedido.dt_pedido ASC
+~~~
+
+#### Query Dim Filial
+~~~ sql
+SELECT filial.id_filial
+  , filial.ds_filial
+  , cidade.ds_cidade
+  , estado.ds_estado
+FROM filial
+LEFT JOIN cidade
+ON cidade.id_cidade = filial.id_cidade
+LEFT JOIN estado
+ON estado.id_estado = cidade.id_estado
+~~~
+
+#### Query Dim Parceiro
+~~~ sql
+SELECT parceiro.id_parceiro
+  , parceiro.nm_parceiro
+FROM parceiro
+~~~
+
+#### Query Dim Produto
+~~~ sql
+SELECT produto.id_produto
+  , produto.ds_produto
+  , subcategoria.ds_subcategoria
+  , categoria.ds_categoria
+  , categoria.perc_parceiro
+FROM produto
+LEFT JOIN subcategoria
+ON subcategoria.id_subcategoria = produto.id_subcategoria
+LEFT JOIN categoria
+ON categoria.id_categoria = subcategoria.id_categoria
+~~~
+
+#### Query Dim Cliente
+~~~ sql
+SELECT cliente.id_cliente
+  , cliente.nm_cliente
+  , cliente.flag_ouro
+FROM cliente
+~~~
 
 ### Modelo Json API
+Após as leituras das queries e agregação pelo Watcher para formar uma tabela concatenada, cada linha do lote extraído é formatada para ser enviada como forma de request para a API. Conforme apresentado no modelo anteriormente a API entregará a um tópico as informações integradas. Posteriormente, essas informações serão enviadas as tabelas de raw e de dw.
+
+~~~ json
+{
+  "id_pedido":"int",
+  "dt_pedido":"datetime",
+  "quantidade":"int",
+  "vr_unitario":"float",
+  "vr_total_pago":"float",
+  "produto":{
+    "id_produto":"int",
+    "ds_produto":"str",
+    "ds_subcategoria":"str",
+    "ds_categoria":"str",
+    "perc_parceiro":"float"
+  },
+  "parceiro":{
+    "id_parceiro":"int",
+    "nm_parceiro":"str"
+  },
+  "cliente":{
+    "id_cliente":"int",
+    "nm_cliente":"str",
+    "flag_ouro":"int"
+  },
+  "filial":{
+    "id_filial":"int",
+    "ds_filial":"str",
+    "ds_cidade":"str",
+    "ds_estado":"str"
+  }
+}
+~~~

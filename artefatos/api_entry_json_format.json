@@ -1,0 +1,29 @@
+{
+  "id_pedido":int,
+  "dt_pedido":datetime,
+  "quantidade":int,
+  "vr_unitario":float,
+  "vr_total_pago":float,
+  "produto":{
+    "id_produto":int,
+    "ds_produto":str,
+    "ds_subcategoria":str,
+    "ds_categoria":str,
+    "perc_parceiro":float
+  },
+  "parceiro":{
+    "id_parceiro":int,
+    "nm_parceiro":str
+  },
+  "cliente":{
+    "id_cliente":int,
+    "nm_cliente":str,
+    "flag_ouro":int
+  },
+  "filial":{
+    "id_filial":int,
+    "ds_filial":str,
+    "ds_cidade":str,
+    "ds_estado":str
+  }
+}
