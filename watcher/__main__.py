@@ -8,6 +8,7 @@ from query_utilities import (
 from format_utilities import format_frame_to_json
 from send_utilities import send_to_api
 from datetime import datetime
+import logging
 
 def get_config_queries():
     return {
@@ -54,7 +55,7 @@ def run_watcher(
 
 def main():
     date_from = datetime.fromisoformat('1900-01-01')
-    logger.info(f"Iniciando run do watcher a partir de {date_from}")
+    logging.info(f"Iniciando run do watcher a partir de {date_from}")
     run_watcher(
         date_from = date_from
     )

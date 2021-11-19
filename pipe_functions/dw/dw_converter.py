@@ -4,7 +4,8 @@ from dw_utilities import (
     treat_messages_dim,
     send_to_athena
 )
-
+import os
+DATABASE = os.environ.get('DATABASE','dw_marketplace')
 
 def main(
     event,
@@ -48,34 +49,34 @@ def main(
     else:
         gathered_pedido = send_to_athena(
             frames_pedido,
-            database = 'dw_marketplace',
+            database = DATABASE,
             table_name = 'fact_item_pedido',
-            partition_field = 'queue_date'
+            partition_field = 'date_pedido'
         )
         gathered_filial = send_to_athena(
             frames_filial,
-            database = 'dw_marketplace',
+            database = DATABASE,
             table_name = 'dim_filial',
             partition_field = '__partition_field',
             pk_field = 'id_filial'
         )
         gathered_cliente = send_to_athena(
             frames_cliente,
-            database = 'dw_marketplace',
+            database = DATABASE,
             table_name = 'dim_cliente',
             partition_field = '__partition_field',
             pk_field = 'id_cliente'
         )
         gathered_parceiro = send_to_athena(
             frames_parceiro,
-            database = 'dw_marketplace',
+            database = DATABASE,
             table_name = 'dim_parceiro',
             partition_field = '__partition_field',
             pk_field = 'id_parceiro'
         )
         gathered_produto = send_to_athena(
             frames_produto,
-            database = 'dw_marketplace',
+            database = DATABASE,
             table_name = 'dim_produto',
             partition_field = '__partition_field',
             pk_field = 'id_produto'

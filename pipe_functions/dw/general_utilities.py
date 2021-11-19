@@ -1,6 +1,6 @@
 import pandas as pd
 import awswrangler as wr
-from datetime import datetime
+from datetime import datetime, date
 import json
 
 def get_query_from_file(filepath:str)->str:

@@ -42,10 +42,10 @@ O detalhamento desse código está na pasta preparacao_dos_dados, os arquivos fo
 
 ![Imagem modelo Multidimensional](artefatos/olap_model.png)
 
-Para a modelagem multidimensional, são sugeridas algumas mudanças no modelo transacional. Inicialmente, seriam agregados pedidos e item pedido, aderindo a granularidade de item pedido. Nesse modelo proposto, item pedido e pedido seriam os fatos gerados pelas dimensões. Para as dimensões seriam consideradas 4, Cliente, Produto, Parceiro e Filial. As tabelas relacionadas seriam desnormalizadas como atributos das dimensões. Por exemplo, em filial existe as tabelas cidade e estado que são relacionadas, porém elas podem ser desnormalizadas nas características da filial.
+Para a modelagem multidimensional, são sugeridas algumas mudanças no modelo transacional. Inicialmente, seriam agregados pedidos e item pedido, aderindo a granularidade de item pedido. Nesse modelo proposto, item pedido e pedido seriam os fatos gerados pelas dimensões. Para as dimensões seriam consideradas 4, Cliente, Produto, Parceiro e Filial. As tabelas relacionadas seriam desnormalizadas como atributos das dimensões. Por exemplo, em filial existem as tabelas cidade e estado que são relacionadas, porém elas podem ser desnormalizadas nas características da filial.
 
 ## Extração Para Modelo de Dados
-Para o pipeline de fluxo foi pensada uma estrutura intercambiável de integração, tanto por via de watcher no banco de dados como por via de webhook. Como plataforma de cloud foi utilizada a AWS como forma principal, o fluxo segue pela API de recepção das informações, posteriormente essa informação é inscrita em um tópico com dois subscribers, ambos são funções lambda, e irão inserir as informações no Athena.
+Para o pipeline de fluxo foi pensada uma estrutura intercambiável de integração, tanto por via de watcher no banco de dados como por via de webhook. Como plataforma de cloud foi utilizada a AWS, o fluxo segue pela API de recepção das informações, posteriormente essa informação é inscrita em um tópico com dois subscribers, ambos são funções lambda, e irão inserir as informações no Athena.
 
 O fluxo dos dados pode ser adaptado as demais plataformas de cloud do mercado como Azure e GCP, substituindo para os recursos de cada plataforma. Outra possibilidade nesse processo é utilizar o Terraform como ferramenta de provisionamento de infra através de código.
 
@@ -192,6 +192,107 @@ O deploy das functions foi feito através do zappa, que é uma biblioteca de dep
   }
 }
 ~~~
+#### Mock Flow
+O código "mock_flow.py" pode ser executado para retirar a necessidade de todo o processo de provisionamento de infra, apenas provisionando o bucket no S3, esse procedimento é mais simples de ser orquestrado mas pode ser utilizado como fluxo inicial de migração para o fluxo. Algumas variáveis de ambiente precisam ser configuradas.
+
+- DATABASE: banco no athena que será armazenado os arquivos
+- PATH_S3: path do bucket no s3 que será inserido os arquivos
+- QUERY_PATH: Nesse caso, o diretório de execução do mock_flow está externo ao dw, por isso é necessário definir essa variável como "pipe_functions/dw/query"
 
 
 ## Etapa de Cálculo das Comissões
+
+Após todo o processo de extração e de inserção dos dados no Athena, foi criada uma view para detalhar as comissões e bônus por parceiro no mês para isso foi utilizado o código em SQL abaixo:
+
+~~~ SQL
+WITH table_pedido_parceiro AS (
+  SELECT fact_item_pedido.id_pedido
+    , fact_item_pedido.dt_pedido
+    , SUBSTR(fact_item_pedido.dt_pedido,1,7) as ano_mes
+    , fact_item_pedido.quantidade
+    , fact_item_pedido.vr_total_pago
+    , dim_parceiro.id_parceiro
+    , dim_parceiro.nm_parceiro
+    , dim_produto.ds_produto
+    , dim_produto.ds_subcategoria
+    , dim_produto.ds_categoria
+    , dim_produto.perc_parceiro
+    , (dim_produto.perc_parceiro*fact_item_pedido.vr_total_pago)/100 AS comissao
+  FROM fact_item_pedido
+  LEFT JOIN dim_produto
+  ON dim_produto.id_produto = fact_item_pedido.id_produto
+  LEFT JOIN dim_parceiro
+  ON dim_parceiro.id_parceiro = fact_item_pedido.id_parceiro
+)
+
+SELECT id_parceiro
+    , nm_parceiro
+    , ano_mes
+    , ROUND(SUM(vr_total_pago),2) AS valor_total_vendido
+    , ROUND(SUM(comissao),2) AS valor_total_de_comissao
+    , FLOOR(SUM(comissao)/10000)*100 AS bonus
+FROM table_pedido_parceiro
+GROUP BY id_parceiro, ano_mes, nm_parceiro
+~~~
+
+
+Dessa forma, pode ser executada uma query mensal com o seguinte formato:
+~~~ SQL
+SELECT nm_parceiro
+, valor_total_vendido
+, (valor_total_de_comissao - bonus) AS comissao_efetiva
+FROM view_parceiros
+WHERE ano_mes = '{YYYY-MM}' AND valor_total_de_comissao>100
+~~~
+
+Dessa forma, ao selecionar o ano e mês desejado é possível receber as comissões exatas que devem ser cobradas a cada um dos parceiros. O valor total vendido foi colocado ao lado como um parâmetro comparativo. Uma possível sugestão neste caso, é construir queries também para avaliar os parceiros que possuem maiores receitas e menores comissionamentos, e os com maiores receitas com maiores comissionamentos. Isso pode ser importante pois pode ser validado se a fórmula de cálculo das comissões está adequada e também está condizente com a operação dos parceiros.
+
+
+## Métricas sugeridas
+- **Cálculo de gasto médio mensal do cliente ouro e do cliente não ouro**
+Avaliar se o cliente ouro engaja o público o suficiente, ou necessita de algumas mudança para se adequar as necessidades do público.
+~~~ SQL
+WITH table_pedido_cliente AS (
+  SELECT fact_item_pedido.id_pedido
+    , fact_item_pedido.dt_pedido
+    , SUBSTR(fact_item_pedido.dt_pedido,1,7) as ano_mes
+    , fact_item_pedido.quantidade
+    , fact_item_pedido.vr_total_pago
+    , dim_parceiro.id_parceiro
+    , dim_parceiro.nm_parceiro
+    , dim_produto.ds_produto
+    , dim_produto.ds_subcategoria
+    , dim_produto.ds_categoria
+    , dim_produto.perc_parceiro
+    , (dim_produto.perc_parceiro*fact_item_pedido.vr_total_pago)/100 AS comissao
+    , dim_cliente.id_cliente
+    , dim_cliente.nm_cliente
+    , dim_cliente.flag_ouro
+  FROM fact_item_pedido
+  LEFT JOIN dim_produto
+  ON dim_produto.id_produto = fact_item_pedido.id_produto
+  LEFT JOIN dim_parceiro
+  ON dim_parceiro.id_parceiro = fact_item_pedido.id_parceiro
+  LEFT JOIN dim_cliente
+  ON dim_cliente.id_cliente = fact_item_pedido.id_cliente
+)
+
+SELECT id_cliente
+    , nm_cliente
+    , ano_mes
+    , flag_ouro
+    , ROUND(SUM(vr_total_pago),2) AS valor_total_vendido
+    , ROUND(SUM(comissao),2) AS valor_total_de_comissao
+    , FLOOR(SUM(comissao)/10000)*100 AS bonus
+FROM table_pedido_cliente
+GROUP BY ano_mes, id_cliente, nm_cliente, flag_ouro
+~~~
+
+- **Comparativo entre o ofertado pela Magalu e o ofertado pelo parceiro**
+Avaliar a possibilidade de entrar no mercado, a partir da mensuração dos dados de parceiros (preços mais elevados do que os praticados pela magazine).
+
+- **Identificar cidades que necessitam de prospecção de parceiros**
+Fazer uma análise comparativa entre os dados públicos brasileiros de consumo e o nível de venda de parceiros em estados. Identificar possíveis gaps (4Ps) de parceiros em regiões específicas, avaliar possibilidade de operação própria e parceira.
+
+- **Clusterização de produtos**
+Quais produtos não podem faltar, e devem ser o foco na prospecção de parceiros, pela alta demanda. Quais produtos são toleráveis de não serem vendidos no marketplace.

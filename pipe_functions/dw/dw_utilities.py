@@ -6,15 +6,23 @@ import os
 
 PARTITION_FIELD_SIZE = os.environ.get('PARTITION_FIELD_SIZE',100000)
 PATH_S3 =  os.environ.get('PATH_S3','s3://desafiomglu/dw')
+QUERY_PATH = os.environ.get('QUERY_PATH','query')
 
 def get_id_dimension(row,dimension_name):
     return row[f'id_{dimension_name}']
+
+def get_date_pedido(row):
+    if isinstance(row, datetime):
+        return row.strftime("%Y-%m-%d")
+    elif isinstance(row,str):
+        return row[:10]
 
 def treat_messages_without_dims(message):
     atributos = simplify_dict_structure(message['Sns']['MessageAttributes'])
     frame = clean_body(atributos['body'])
     frame['queue_datetime'] = message['Sns']['Timestamp']
     frame['queue_date'] = message['Sns']['Timestamp'][:10]
+    frame['date_pedido'] = frame['dt_pedido'].apply(get_date_pedido)
     dimensions = get_dimensions()
     for dimension in dimensions:
         frame[f'id_{dimension}'] = frame[dimension].apply(get_id_dimension,dimension_name=dimension)
@@ -48,7 +56,7 @@ def send_to_athena(
     if wr.catalog.does_table_exist(database=database, table=table_name) and (pk_field is not None):
         partition_fields = frame[partition_field].unique()
         query = get_query_from_file(
-            'query/query_base.sql'
+            f'{QUERY_PATH}/query_base.sql'
         ).format(
             table=table_name,
             partition_field=partition_field,
