@@ -131,7 +131,7 @@ FROM cliente
 ~~~
 
 ### Modelo Json API
-Após as leituras das queries e agregação pelo Watcher para formar uma tabela concatenada, cada linha do lote extraído é formatada para ser enviada como forma de request para a API. Conforme apresentado no modelo anteriormente a API entregará a um tópico as informações integradas. Posteriormente, essas informações serão enviadas as tabelas de raw e de dw.
+Após as leituras das queries e agregação pelo Watcher para formar uma tabela concatenada, cada linha do lote extraído é formatada para ser enviada como forma de request para a API. Conforme apresentado no modelo anteriormente a API entregará a um tópico as informações integradas. Posteriormente, essas informações serão enviadas as tabelas de raw e de dw. O código para API está escrito em Flask e pode ser encontrado na pasta api.
 
 ~~~ json
 {
@@ -164,3 +164,34 @@ Após as leituras das queries e agregação pelo Watcher para formar uma tabela 
   }
 }
 ~~~
+
+### Envio para o DW
+Ao receber a requisição, a API envia a mensagem para um tópico com dois leitores: pipe_function_dw e pipe_function_raw. Esses Pipelines recebem a informação da mensagem e as envia para o Athena. A função Raw guarda o dado cru oriundo do tópico, enquanto a função Dw guarda o dado trabalhado de mesma origem.
+
+Para armazenamento no Athena, foi utilizado o formato parquet. Com relação a partição, foi usada a data em que o elemento entrou em fila para a tabela de fatos e definidos lotes de 100000 para as dimensões, com base no id. O código desenvolvido para as funções pode ser encontrado na pasta pipe_functions
+
+O deploy das functions foi feito através do zappa, que é uma biblioteca de deploy para lambdas em python. Abaixo segue o modelo de zappa_settings utilizado para esse caso.
+
+~~~ json
+{
+  "dev": {
+      "aws_region": "sa-east-1",
+      "project_name": "pipe_function_dw",
+      "runtime": "python3.8",
+      "s3_bucket": "{{BUCKET}}",
+      "role_name":"{{ROLE_NAME}}",
+      "role_arn":"{{ARN}}",
+      "profile_name":"{{PROFILE_NAME}}",
+      "use_apigateway":false,
+      "keep_warm":false,
+      "lambda_handler": "dw_converter.main",
+      "log_level": "INFO",
+      "aws_environment_variables": {
+      },
+      "use_precompiled_packages": false
+  }
+}
+~~~
+
+
+## Etapa de Cálculo das Comissões

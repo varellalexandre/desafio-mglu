@@ -63,7 +63,7 @@ def in_filter_read_table(
 def batch_read_table(
     query:str,
     engine:Engine,
-    batch_size:int = 100000,
+    batch_size:int = 400,
     **kwargs
 )->pd.DataFrame:
     offset = 0

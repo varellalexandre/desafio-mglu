@@ -1,11 +1,12 @@
-from .query_utilities import (
+from query_utilities import (
     run_sql_query,
     connect_sqlite,
     get_query_from_file,
     batch_read_table,
     gather_dim_frames
 )
-from .format_utilities import format_frame_to_json
+from format_utilities import format_frame_to_json
+from send_utilities import send_to_api
 from datetime import datetime
 
 def get_config_queries():
@@ -49,4 +50,14 @@ def run_watcher(
             engine = engine
         )
         formatted_list = format_frame_to_json(gathered_table)
-        
+        send_to_api(formatted_list)
+
+def main():
+    date_from = datetime.fromisoformat('1900-01-01')
+    logger.info(f"Iniciando run do watcher a partir de {date_from}")
+    run_watcher(
+        date_from = date_from
+    )
+
+if __name__ == "__main__":
+    main()
