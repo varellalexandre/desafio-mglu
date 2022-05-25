@@ -10,7 +10,7 @@ et-xmlfile==1.1.0
 idna==3.3
 jmespath==0.10.0
 jsonpath-ng==1.5.3
-lxml==4.6.4
+lxml==4.6.5
 numpy==1.21.4
 openpyxl==3.0.9
 opensearch-py==1.0.0
